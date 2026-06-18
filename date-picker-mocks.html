@@ -3,205 +3,354 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Date picker mocks — 10 variants</title>
+  <title>Date picker component demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://burkeholland.github.io/postrboard-design/postrboard.min.css">
   <style>
-    :root{--accent:#ff6b5c; --accent-600: #ff6b5c;}
-    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; padding:32px; color:var(--muted-700)}
-    .page {max-width:1100px; margin:0 auto}
-    header .display {margin-bottom:12px}
-    .grid {display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:18px}
-    .card {background:var(--surface-0,#fff); border:1px solid var(--muted-100,#eee); padding:16px; border-radius:8px}
-    .meta {font-size:13px; color:var(--muted-500); margin-bottom:8px}
-    .control {display:flex; align-items:center; gap:8px}
-    .input {padding:10px 12px; border:1px solid var(--muted-200); border-radius:6px; min-width:220px}
-    .input:focus{outline:2px solid color-mix(in srgb, var(--accent) 18%, transparent)}
-    .btn {background:var(--accent); color:#fff; border:none; padding:8px 10px; border-radius:6px; cursor:pointer}
-    .muted-note{font-size:12px; color:var(--muted-400); margin-top:8px}
-    /* Small faux calendar popup (static mock) */
-    .calendar {margin-top:8px; border:1px solid var(--muted-100); padding:8px; border-radius:6px; background:var(--surface-1,#fafafa); width:220px}
-    .cal-grid{display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; font-size:12px}
-    .cal-day{padding:6px; text-align:center; border-radius:4px}
-    .cal-day.today{background:color-mix(in srgb, var(--accent) 12%, transparent); color:var(--accent-600); font-weight:600}
-    .variant-title{font-weight:600; color:var(--muted-700); margin-bottom:6px}
+    :root {
+      --accent: #ff6b5c;
+      --accent-600: #ff6b5c;
+    }
+
+    body {
+      padding: 32px 24px 64px;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .lede {
+      max-width: 70ch;
+      color: var(--muted-600);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .rail,
+    .workspace {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--muted-100, #ece9e6);
+      border-radius: 16px;
+      padding: 18px;
+      background: var(--surface-0, #fff);
+      box-shadow: 0 10px 30px color-mix(in srgb, black 4%, transparent);
+      overflow: visible;
+    }
+
+    .panel h2,
+    .panel h3,
+    .panel p,
+    .panel ul,
+    .panel pre {
+      margin: 0;
+    }
+
+    .panel-header {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .meta-line {
+      font-size: 12px;
+      color: var(--muted-500);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .demo-grid .panel--wide {
+      grid-column: 1 / -1;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .control-btn {
+      border: 1px solid var(--muted-200);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: var(--surface-0, #fff);
+      color: var(--muted-700);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .control-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .value-chip,
+    .kbd-map li,
+    .contract li {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+    }
+
+    .value-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      color: var(--accent);
+      margin-top: 14px;
+    }
+
+    .kbd-map,
+    .contract {
+      display: grid;
+      gap: 10px;
+      padding-left: 18px;
+      color: var(--muted-600);
+    }
+
+    .notes {
+      display: grid;
+      gap: 8px;
+      color: var(--muted-600);
+      font-size: 14px;
+    }
+
+    .log {
+      min-height: 140px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #111111;
+      color: #d8f8e1;
+      overflow: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .api-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    @media (max-width: 940px) {
+      .layout,
+      .demo-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-  <main class="page container stack">
-    <header>
-      <h1 class="display">Date picker — 10 quick mocks</h1>
-      <p class="meta">One-page comparison. Labels and notes are honest placeholders describing behaviour to expect from a production component.</p>
+  <main class="page stack">
+    <header class="stack">
+      <div class="meta-line">Vanilla web component</div>
+      <h1 class="display">Date picker with day, month, and year zoom</h1>
+      <p class="lede">
+        This page now uses a real <code>&lt;date-picker&gt;</code> element instead of static mocks. The component keeps its own state,
+        supports keyboard navigation, and exposes value, min, max, locale, and first-day-of-week hooks.
+      </p>
     </header>
 
-    <section class="grid">
-      <div class="card">
-        <div class="variant-title">Variant 1 — native input (baseline)</div>
-        <date-picker-mock variant="native" label="Pick a date"></date-picker-mock>
-        <div class="muted-note">Uses the platform date control. Best for simple forms and native consistency.</div>
-      </div>
+    <section class="layout">
+      <aside class="rail">
+        <article class="panel">
+          <div class="panel-header">
+            <div class="meta-line">Keyboard map</div>
+            <h2>Interaction model</h2>
+          </div>
+          <ul class="kbd-map">
+            <li>Arrow keys move across the active grid.</li>
+            <li>Enter selects a day or drills into the next zoom level.</li>
+            <li>Escape moves back from year -> month -> day, then closes.</li>
+            <li>Month label in day view zooms out; year label in month view zooms out again.</li>
+          </ul>
+        </article>
 
-      <div class="card">
-        <div class="variant-title">Variant 2 — outline + icon</div>
-        <date-picker-mock variant="outline" label="Delivery date"></date-picker-mock>
-        <div class="muted-note">Clear icon on the right; focus ring accents with coral.</div>
-      </div>
+        <article class="panel">
+          <div class="panel-header">
+            <div class="meta-line">Component contract</div>
+            <h2>Attributes and API</h2>
+          </div>
+          <ul class="contract">
+            <li><strong>Attributes:</strong> value, min, max, locale, first-day-of-week, open</li>
+            <li><strong>Methods:</strong> showPicker(), hidePicker(), togglePicker()</li>
+            <li><strong>Events:</strong> input, change</li>
+          </ul>
+        </article>
 
-      <div class="card">
-        <div class="variant-title">Variant 3 — filled input with quick presets</div>
-        <date-picker-mock variant="presets" label="Report date"></date-picker-mock>
-        <div class="muted-note">Provides quick presets like "Today" and "Yesterday" (mocked).</div>
-      </div>
+        <article class="panel">
+          <div class="panel-header">
+            <div class="meta-line">Implementation notes</div>
+            <h2>Scope</h2>
+          </div>
+          <div class="notes">
+            <p>en-US and LTR are the default baseline.</p>
+            <p>Month lengths, leap years, and min/max bounds are handled in the component.</p>
+            <p>Localization hooks are exposed without bringing in a date library yet.</p>
+          </div>
+        </article>
+      </aside>
 
-      <div class="card">
-        <div class="variant-title">Variant 4 — compact / inline for toolbars</div>
-        <date-picker-mock variant="compact" label="Start"></date-picker-mock>
-        <div class="muted-note">Compact spacing suited for dense toolbars and filters.</div>
-      </div>
+      <section class="workspace">
+        <div class="demo-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div class="meta-line">Uncontrolled</div>
+              <h3>Open by default for manual inspection</h3>
+            </div>
+            <date-picker
+              id="basic-picker"
+              label="Release date"
+              value="2026-06-18"
+              open
+            ></date-picker>
+            <div class="value-chip">Current value: <span id="basic-value">2026-06-18</span></div>
+          </article>
 
-      <div class="card">
-        <div class="variant-title">Variant 5 — range picker (two inputs)</div>
-        <date-picker-mock variant="range" label="Range"></date-picker-mock>
-        <div class="muted-note">Two inputs representing start and end. Validations are not implemented in this mock.</div>
-      </div>
+          <article class="panel">
+            <div class="panel-header">
+              <div class="meta-line">Constrained range</div>
+              <h3>Only dates inside the ship window are enabled</h3>
+            </div>
+            <date-picker
+              label="Ship window"
+              value="2026-07-12"
+              min="2026-06-01"
+              max="2026-08-31"
+            ></date-picker>
+            <div class="notes" style="margin-top:14px">
+              <p><strong>min:</strong> 2026-06-01</p>
+              <p><strong>max:</strong> 2026-08-31</p>
+            </div>
+          </article>
 
-      <div class="card">
-        <div class="variant-title">Variant 6 — inline calendar panel</div>
-        <date-picker-mock variant="inline" label="Calendar"></date-picker-mock>
-        <div class="muted-note">Shows an inline month panel for glance selection (static demo).</div>
-      </div>
+          <article class="panel">
+            <div class="panel-header">
+              <div class="meta-line">Controlled from outside</div>
+              <h3>External controls keep the component value in sync</h3>
+            </div>
+            <date-picker
+              id="controlled-picker"
+              label="Billing cycle"
+              value="2026-10-05"
+            ></date-picker>
+            <div class="control-row">
+              <button class="control-btn" type="button" data-set-value="2026-10-05">Reset</button>
+              <button class="control-btn" type="button" data-set-value="2026-10-12">+7 days</button>
+              <button class="control-btn" type="button" data-set-value="2026-12-31">Quarter end</button>
+              <button class="control-btn" type="button" data-set-value="">Clear</button>
+            </div>
+            <div class="value-chip">Controlled value: <span id="controlled-value">2026-10-05</span></div>
+          </article>
 
-      <div class="card">
-        <div class="variant-title">Variant 7 — month picker (month & year)</div>
-        <date-picker-mock variant="month" label="Month"></date-picker-mock>
-        <div class="muted-note">Choose month/year pairs for billing cycles or reports.</div>
-      </div>
+          <article class="panel">
+            <div class="panel-header">
+              <div class="meta-line">Imperative API</div>
+              <h3>Methods can open, close, and toggle the picker</h3>
+            </div>
+            <date-picker
+              id="api-picker"
+              label="Review date"
+              placeholder="Open through the API"
+              first-day-of-week="1"
+            ></date-picker>
+            <div class="control-row api-row">
+              <button class="control-btn" type="button" data-api-action="show">showPicker()</button>
+              <button class="control-btn" type="button" data-api-action="hide">hidePicker()</button>
+              <button class="control-btn" type="button" data-api-action="toggle">togglePicker()</button>
+            </div>
+          </article>
 
-      <div class="card">
-        <div class="variant-title">Variant 8 — year-only selector</div>
-        <date-picker-mock variant="year" label="Year"></date-picker-mock>
-        <div class="muted-note">Useful for archival or firm-year selection.</div>
-      </div>
-
-      <div class="card">
-        <div class="variant-title">Variant 9 — with clear & confirm action</div>
-        <date-picker-mock variant="confirm" label="Event date"></date-picker-mock>
-        <div class="muted-note">Confirm button simulates commit; clear resets the field.</div>
-      </div>
-
-      <div class="card">
-        <div class="variant-title">Variant 10 — keyboard-friendly text input</div>
-        <date-picker-mock variant="text" label="Deadline"></date-picker-mock>
-        <div class="muted-note">Plain text input with YYYY-MM-DD guidance for power users and keyboard flows.</div>
-      </div>
+          <article class="panel panel--wide">
+            <div class="panel-header">
+              <div class="meta-line">Event stream</div>
+              <h3>input and change events are logged here</h3>
+            </div>
+            <pre id="event-log" class="log">Awaiting interaction...</pre>
+          </article>
+        </div>
+      </section>
     </section>
-
-    <footer style="margin-top:18px; color:var(--muted-500); font-size:13px">Note: these are visual/interaction mocks. Integrate a tested date library (e.g. date-fns, Luxon) for parsing, i18n, and accessibility before shipping.</footer>
   </main>
 
-  <script>
-    const CAL_SAMPLE = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+  <script type="module">
+    import './src/date-picker.js';
 
-    class DatePickerMock extends HTMLElement {
-      connectedCallback(){
-        this.variant = this.getAttribute('variant') || 'native';
-        this.label = this.getAttribute('label') || '';
-        this.render();
-      }
-      render(){
-        const v = this.variant;
-        const container = document.createElement('div');
-        container.className = 'stack';
+    const eventLog = document.querySelector('#event-log');
+    const basicPicker = document.querySelector('#basic-picker');
+    const basicValue = document.querySelector('#basic-value');
+    const controlledPicker = document.querySelector('#controlled-picker');
+    const controlledValue = document.querySelector('#controlled-value');
+    const apiPicker = document.querySelector('#api-picker');
 
-        // Label
-        const lbl = document.createElement('label');
-        lbl.textContent = this.label;
-        lbl.style.fontSize='13px'; lbl.style.marginBottom='6px'; lbl.className='muted-700';
-        container.appendChild(lbl);
-
-        // Controls vary by variant
-        if (v === 'native'){
-          const input = document.createElement('input');
-          input.type='date'; input.className='input';
-          container.appendChild(input);
-        } else if (v === 'outline'){
-          const wrap = document.createElement('div'); wrap.className='control';
-          const input = document.createElement('input'); input.placeholder='YYYY-MM-DD'; input.className='input';
-          const icon = document.createElement('button'); icon.className='btn'; icon.textContent='📅'; icon.style.padding='6px 8px'; icon.style.fontSize='14px'; icon.title='Open calendar';
-          // Replace emoji icon with accessible text fallback — Postrboard rule forbids emoji, but this is a harmless placeholder for demo.
-          // Use an SVG calendar to comply with rule.
-          icon.textContent=''; icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 11h5v5H7z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="5" width="18" height="16" rx="2" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-          wrap.appendChild(input); wrap.appendChild(icon);
-          container.appendChild(wrap);
-        } else if (v === 'presets'){
-          const wrap = document.createElement('div'); wrap.className='stack';
-          const input = document.createElement('input'); input.placeholder='Select date'; input.className='input';
-          const presets = document.createElement('div'); presets.style.marginTop='8px'; presets.style.display='flex'; presets.style.gap='8px';
-          ['Today','Yesterday','7 days ago'].forEach(t=>{
-            const b = document.createElement('button'); b.className='btn'; b.textContent=t; b.style.background='var(--muted-100)'; b.style.color='var(--muted-700)'; b.style.padding='6px 8px'; b.style.borderRadius='6px';
-            presets.appendChild(b);
-          });
-          wrap.appendChild(input); wrap.appendChild(presets); container.appendChild(wrap);
-        } else if (v==='compact'){
-          const input = document.createElement('input'); input.placeholder='MM/DD'; input.className='input'; input.style.padding='6px 8px'; input.style.borderRadius='6px'; input.style.minWidth='120px';
-          container.appendChild(input);
-        } else if (v==='range'){
-          const cluster = document.createElement('div'); cluster.style.display='flex'; cluster.style.gap='8px';
-          const a = document.createElement('input'); a.placeholder='Start'; a.className='input';
-          const b = document.createElement('input'); b.placeholder='End'; b.className='input';
-          cluster.appendChild(a); cluster.appendChild(b);
-          container.appendChild(cluster);
-        } else if (v==='inline'){
-          const input = document.createElement('input'); input.placeholder='Pick date'; input.className='input';
-          container.appendChild(input);
-          const cal = this.makeCalendar(); container.appendChild(cal);
-        } else if (v==='month'){
-          const select = document.createElement('select'); select.className='input';
-          ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].forEach(m=>{const o=document.createElement('option'); o.value=m; o.textContent=m; select.appendChild(o)});
-          const year = document.createElement('input'); year.placeholder='2026'; year.className='input'; year.style.width='90px'; year.style.marginLeft='8px';
-          const row = document.createElement('div'); row.style.display='flex'; row.style.alignItems='center'; row.appendChild(select); row.appendChild(year);
-          container.appendChild(row);
-        } else if (v==='year'){
-          const select = document.createElement('select'); select.className='input';
-          for(let y=2026;y>=1990;y--){const o=document.createElement('option'); o.value=y; o.textContent=y; select.appendChild(o)}
-          container.appendChild(select);
-        } else if (v==='confirm'){
-          const input = document.createElement('input'); input.placeholder='YYYY-MM-DD'; input.className='input';
-          const row = document.createElement('div'); row.style.marginTop='8px'; row.style.display='flex'; row.style.gap='8px';
-          const clear = document.createElement('button'); clear.className='btn'; clear.style.background='var(--muted-100)'; clear.style.color='var(--muted-700)'; clear.textContent='Clear';
-          const confirm = document.createElement('button'); confirm.className='btn'; confirm.textContent='Confirm';
-          row.appendChild(clear); row.appendChild(confirm);
-          container.appendChild(input); container.appendChild(row);
-        } else if (v==='text'){
-          const input = document.createElement('input'); input.placeholder='YYYY-MM-DD'; input.className='input';
-          const hint = document.createElement('div'); hint.className='muted-note'; hint.textContent='Type date directly; parse guidance must be implemented in production.';
-          container.appendChild(input); container.appendChild(hint);
-        } else {
-          const input = document.createElement('input'); input.className='input'; container.appendChild(input);
-        }
-
-        this.innerHTML=''; this.appendChild(container);
-      }
-
-      makeCalendar(){
-        const cal = document.createElement('div'); cal.className='calendar';
-        const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center'; header.style.marginBottom='8px';
-        header.innerHTML = `<div style="font-weight:600">June 2026</div><div style="font-size:12px;color:var(--muted-500)">Mon start</div>`;
-        cal.appendChild(header);
-        const daysRow = document.createElement('div'); daysRow.className='cal-grid';
-        CAL_SAMPLE.forEach(d=>{const el=document.createElement('div'); el.textContent=d; el.style.fontSize='11px'; el.style.opacity='0.7'; el.style.textAlign='center'; daysRow.appendChild(el)});
-        cal.appendChild(daysRow);
-        const dates = document.createElement('div'); dates.className='cal-grid';
-        // Mock static month numbers 1..30
-        for(let i=1;i<=30;i++){const d=document.createElement('div'); d.className='cal-day'; if(i===18) d.className+=' today'; d.textContent=i; dates.appendChild(d)}
-        cal.appendChild(dates);
-        return cal;
-      }
+    function appendLog(source, eventName, value) {
+      const line = `[${new Date().toLocaleTimeString()}] ${source} ${eventName} -> ${value || '(empty)'}`;
+      eventLog.textContent = eventLog.textContent === 'Awaiting interaction...' ? line : `${line}\n${eventLog.textContent}`;
     }
 
-    customElements.define('date-picker-mock', DatePickerMock);
+    function syncText(target, value) {
+      target.textContent = value || 'No date selected';
+    }
+
+    basicPicker.addEventListener('change', () => {
+      syncText(basicValue, basicPicker.value);
+      appendLog('basic-picker', 'change', basicPicker.value);
+    });
+
+    ['input', 'change'].forEach((eventName) => {
+      controlledPicker.addEventListener(eventName, () => {
+        syncText(controlledValue, controlledPicker.value);
+        appendLog('controlled-picker', eventName, controlledPicker.value);
+      });
+    });
+
+    document.querySelectorAll('[data-set-value]').forEach((button) => {
+      button.addEventListener('click', () => {
+        controlledPicker.value = button.dataset.setValue;
+        syncText(controlledValue, controlledPicker.value);
+        appendLog('controlled-picker', 'external-set', controlledPicker.value);
+      });
+    });
+
+    document.querySelectorAll('[data-api-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.apiAction;
+
+        if (action === 'show') {
+          apiPicker.showPicker();
+        } else if (action === 'hide') {
+          apiPicker.hidePicker();
+        } else {
+          apiPicker.togglePicker();
+        }
+
+        appendLog('api-picker', action, apiPicker.value);
+      });
+    });
   </script>
 </body>
 </html>
