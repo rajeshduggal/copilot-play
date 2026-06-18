@@ -316,6 +316,11 @@
       target.textContent = value || 'No date selected';
     }
 
+    basicPicker.addEventListener('input', () => {
+      syncText(basicValue, basicPicker.value);
+      appendLog('basic-picker', 'input', basicPicker.value);
+    });
+
     basicPicker.addEventListener('change', () => {
       syncText(basicValue, basicPicker.value);
       appendLog('basic-picker', 'change', basicPicker.value);

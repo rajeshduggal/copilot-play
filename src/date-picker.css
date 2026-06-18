@@ -163,13 +163,11 @@ button {
   cursor: default;
 }
 
-.picker__weekday-row,
 .picker__grid {
   display: grid;
   gap: 0.375rem;
 }
 
-.picker__weekday-row,
 .picker__grid--days {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
@@ -224,7 +222,6 @@ button {
 .picker__nav[disabled] {
   opacity: 0.38;
   cursor: not-allowed;
-  pointer-events: none;
 }
 
 .picker__footer {

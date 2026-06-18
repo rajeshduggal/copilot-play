@@ -2,6 +2,36 @@ const DEFAULT_LOCALE = 'en-US';
 const DEFAULT_FIRST_DAY_OF_WEEK = 0;
 const YEAR_VIEW_SPAN = 10;
 const YEAR_VIEW_COLUMNS = 5;
+const MONTH_VIEW_COLUMNS = 4;
+
+// Module-level Intl formatter cache — avoids rebuilding per-cell per-render.
+const _formatterCache = new Map();
+
+function getCachedFormatter(locale, options) {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  if (!_formatterCache.has(key)) {
+    _formatterCache.set(key, new Intl.DateTimeFormat(locale, options));
+  }
+  return _formatterCache.get(key);
+}
+
+function htmlEscape(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function validateLocale(locale) {
+  try {
+    new Intl.DateTimeFormat(locale);
+    return locale;
+  } catch {
+    console.warn(`[date-picker] Invalid locale "${locale}", falling back to ${DEFAULT_LOCALE}.`);
+    return DEFAULT_LOCALE;
+  }
+}
 
 function createDate(year, month, day) {
   return new Date(year, month, day, 12);
@@ -157,11 +187,11 @@ function startOfWeek(date, firstDayOfWeek) {
 }
 
 function getMonthName(date, locale, format = 'long') {
-  return new Intl.DateTimeFormat(locale, { month: format }).format(date);
+  return getCachedFormatter(locale, { month: format }).format(date);
 }
 
 function getAccessibleDateLabel(date, locale) {
-  return new Intl.DateTimeFormat(locale, {
+  return getCachedFormatter(locale, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -170,12 +200,13 @@ function getAccessibleDateLabel(date, locale) {
 }
 
 function getVisibleWeekdayLabels(locale, firstDayOfWeek) {
-  const baseSunday = createDate(2026, 0, 4);
+  // Use a reference week starting on the Sunday of ISO week 1 of year 2000,
+  // which is guaranteed to be a Sunday regardless of locale or DST.
+  const baseSunday = createDate(2000, 0, 2); // 2000-01-02 is a Sunday
 
   return Array.from({ length: 7 }, (_, index) => {
-    const weekday = addDays(baseSunday, (index + firstDayOfWeek) % 7);
-
-    return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(weekday);
+    const weekday = addDays(baseSunday, (firstDayOfWeek + index) % 7);
+    return getCachedFormatter(locale, { weekday: 'short' }).format(weekday);
   });
 }
 
@@ -335,7 +366,7 @@ export class DatePicker extends HTMLElement {
   }
 
   _syncFromAttributes() {
-    this._locale = this.getAttribute('locale') || DEFAULT_LOCALE;
+    this._locale = validateLocale(this.getAttribute('locale') || DEFAULT_LOCALE);
 
     const parsedFirstDay = Number.parseInt(this.getAttribute('first-day-of-week') ?? String(DEFAULT_FIRST_DAY_OF_WEEK), 10);
     this._firstDayOfWeek =
@@ -352,7 +383,18 @@ export class DatePicker extends HTMLElement {
     }
 
     const nextValue = this._readDateAttribute('value');
-    this._valueDate = nextValue ? clampDate(nextValue, this._minDate, this._maxDate) : null;
+    const clampedValue = nextValue ? clampDate(nextValue, this._minDate, this._maxDate) : null;
+    this._valueDate = clampedValue;
+
+    // Reflect clamped value back to the attribute so the DOM stays consistent.
+    if (nextValue && clampedValue && !isSameDay(nextValue, clampedValue)) {
+      queueMicrotask(() => {
+        if (this.isConnected) {
+          this.setAttribute('value', formatDateString(clampedValue));
+        }
+      });
+    }
+
     this._open = this.hasAttribute('open');
 
     const fallbackFocus = clampDate(today(), this._minDate, this._maxDate);
@@ -439,6 +481,7 @@ export class DatePicker extends HTMLElement {
 
       this.removeAttribute('value');
       this.hidePicker();
+      this._focusTrigger();
       this.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
       this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
       return;
@@ -500,6 +543,25 @@ export class DatePicker extends HTMLElement {
       return;
     }
 
+    // Tab focus trap — cycle through all non-disabled buttons in the panel.
+    if (event.key === 'Tab') {
+      const panel = this.shadowRoot.querySelector('.picker__panel');
+      const focusable = panel
+        ? [...panel.querySelectorAll('button:not([disabled])')].filter((b) => b.tabIndex !== -1)
+        : [];
+      if (focusable.length > 0) {
+        const active = this.shadowRoot.activeElement;
+        const idx = focusable.indexOf(active);
+        event.preventDefault();
+        if (event.shiftKey) {
+          (idx > 0 ? focusable[idx - 1] : focusable[focusable.length - 1]).focus({ preventScroll: true });
+        } else {
+          (idx < focusable.length - 1 ? focusable[idx + 1] : focusable[0]).focus({ preventScroll: true });
+        }
+      }
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
 
@@ -522,9 +584,25 @@ export class DatePicker extends HTMLElement {
       return;
     }
 
+    // Home / End — first or last cell of the current view period.
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      this._moveToEdge(event.key === 'Home' ? 'start' : 'end');
+      return;
+    }
+
+    // PageUp / PageDown — navigate one period in the active view.
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      event.preventDefault();
+      this._stepView(event.key === 'PageUp' ? -1 : 1);
+      return;
+    }
+
     const arrowOffsets =
       this._view === 'day'
         ? { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
+        : this._view === 'month'
+        ? { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -MONTH_VIEW_COLUMNS, ArrowDown: MONTH_VIEW_COLUMNS }
         : { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -YEAR_VIEW_COLUMNS, ArrowDown: YEAR_VIEW_COLUMNS };
 
     if (Object.hasOwn(arrowOffsets, event.key)) {
@@ -534,9 +612,33 @@ export class DatePicker extends HTMLElement {
     }
 
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      this._commitFocusedValue();
+      // Only take over Enter/Space when a grid cell has focus.
+      // For nav and footer buttons the browser's built-in click dispatch is sufficient.
+      if (event.target.closest('[role="gridcell"]')) {
+        event.preventDefault();
+        this._commitFocusedValue();
+      }
     }
+  }
+
+  _moveToEdge(edge) {
+    if (this._view === 'day') {
+      const target = edge === 'start' ? startOfMonth(this._viewDate) : endOfMonth(this._viewDate);
+      this._focusedDate = clampDate(target, this._minDate, this._maxDate);
+    } else if (this._view === 'month') {
+      const year = this._viewDate.getFullYear();
+      const target = edge === 'start' ? createDate(year, 0, 1) : createDate(year, 11, 31);
+      this._focusedDate = clampDate(target, this._minDate, this._maxDate);
+      this._viewDate = startOfMonth(this._focusedDate);
+    } else {
+      const rangeStart = this._getYearRangeStart();
+      const year = edge === 'start' ? rangeStart : rangeStart + YEAR_VIEW_SPAN - 1;
+      const target = createDate(year, this._focusedDate.getMonth(), 1);
+      this._focusedDate = clampDate(target, this._minDate, this._maxDate);
+      this._viewDate = startOfMonth(this._focusedDate);
+    }
+    this.render();
+    this._focusActiveCell();
   }
 
   _stepView(direction) {
@@ -652,6 +754,7 @@ export class DatePicker extends HTMLElement {
     this._viewDate = startOfMonth(date);
     this.setAttribute('value', formatDateString(date));
     this.hidePicker();
+    this._focusTrigger();
     this.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
     this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
   }
@@ -730,38 +833,51 @@ export class DatePicker extends HTMLElement {
     const gridStart = startOfWeek(monthStart, this._firstDayOfWeek);
     const todayDate = today();
 
-    const cells = Array.from({ length: 42 }, (_, index) => {
-      const date = addDays(gridStart, index);
-      const outsideMonth = date.getMonth() !== monthStart.getMonth();
-      const selected = this._valueDate && isSameDay(this._valueDate, date);
-      const focused = isSameDay(this._focusedDate, date);
-      const currentDay = isSameDay(todayDate, date);
-      const disabled = !isWithinRange(date, this._minDate, this._maxDate);
+    // Build 6 weeks of 7 days, grouped into ARIA rows for screen readers.
+    const rows = Array.from({ length: 6 }, (_, rowIndex) => {
+      const cells = Array.from({ length: 7 }, (_, colIndex) => {
+        const date = addDays(gridStart, rowIndex * 7 + colIndex);
+        const outsideMonth = date.getMonth() !== monthStart.getMonth();
+        const selected = Boolean(this._valueDate && isSameDay(this._valueDate, date));
+        const focused = isSameDay(this._focusedDate, date);
+        const currentDay = isSameDay(todayDate, date);
+        const disabled = !isWithinRange(date, this._minDate, this._maxDate);
 
-      return `
-        <button
-          type="button"
-          class="picker__cell picker__cell--day${outsideMonth ? ' is-outside' : ''}${selected ? ' is-selected' : ''}${currentDay ? ' is-today' : ''}"
-          data-date="${formatDateString(date)}"
-          data-focused="${focused}"
-          aria-selected="${selected}"
-          aria-label="${getAccessibleDateLabel(date, this._locale)}"
-          ${disabled ? 'disabled' : ''}
-          tabindex="${focused ? '0' : '-1'}"
-        >
-          <span>${date.getDate()}</span>
-        </button>
-      `;
+        return `
+          <button
+            role="gridcell"
+            type="button"
+            class="picker__cell picker__cell--day${outsideMonth ? ' is-outside' : ''}${selected ? ' is-selected' : ''}${currentDay ? ' is-today' : ''}"
+            data-date="${formatDateString(date)}"
+            data-focused="${focused}"
+            aria-selected="${selected}"
+            ${currentDay ? 'aria-current="date"' : ''}
+            aria-label="${htmlEscape(getAccessibleDateLabel(date, this._locale))}"
+            ${disabled ? 'disabled' : ''}
+            tabindex="${focused ? '0' : '-1'}"
+          >
+            <span aria-hidden="true">${date.getDate()}</span>
+          </button>
+        `;
+      }).join('');
+
+      return `<div role="row" style="display:contents">${cells}</div>`;
     }).join('');
+
+    const colHeaders = weekdayLabels
+      .map((lbl) => `<span role="columnheader" class="picker__weekday" aria-label="${htmlEscape(lbl)}">${htmlEscape(lbl)}</span>`)
+      .join('');
 
     return `
       <div class="picker__body" data-view="day">
         ${this._renderHeader()}
-        <div class="picker__weekday-row" aria-hidden="true">
-          ${weekdayLabels.map((label) => `<span class="picker__weekday">${label}</span>`).join('')}
-        </div>
-        <div class="picker__grid picker__grid--days" role="grid" aria-label="Calendar days">
-          ${cells}
+        <div
+          class="picker__grid picker__grid--days"
+          role="grid"
+          aria-label="${htmlEscape(getMonthName(this._viewDate, this._locale))} ${this._viewDate.getFullYear()}"
+        >
+          <div role="row" style="display:contents">${colHeaders}</div>
+          ${rows}
         </div>
       </div>
     `;
@@ -772,34 +888,42 @@ export class DatePicker extends HTMLElement {
     const selectedYear = this._valueDate?.getFullYear();
     const selectedMonth = this._valueDate?.getMonth();
 
-    const cells = Array.from({ length: 12 }, (_, monthIndex) => {
-      const monthDate = createDate(this._viewDate.getFullYear(), monthIndex, 1);
-      const selected = selectedYear === monthDate.getFullYear() && selectedMonth === monthIndex;
-      const focused = this._focusedDate.getFullYear() === monthDate.getFullYear() && this._focusedDate.getMonth() === monthIndex;
-      const currentMonth = todayDate.getFullYear() === monthDate.getFullYear() && todayDate.getMonth() === monthIndex;
-      const disabled = !monthIntersectsRange(monthDate, this._minDate, this._maxDate);
+    // Group 12 months into 3 rows of 4 for ARIA grid semantics.
+    const rows = Array.from({ length: 3 }, (_, rowIndex) => {
+      const cells = Array.from({ length: MONTH_VIEW_COLUMNS }, (_, colIndex) => {
+        const monthIndex = rowIndex * MONTH_VIEW_COLUMNS + colIndex;
+        const monthDate = createDate(this._viewDate.getFullYear(), monthIndex, 1);
+        const selected = selectedYear === monthDate.getFullYear() && selectedMonth === monthIndex;
+        const focused = this._focusedDate.getFullYear() === monthDate.getFullYear() && this._focusedDate.getMonth() === monthIndex;
+        const currentMonth = todayDate.getFullYear() === monthDate.getFullYear() && todayDate.getMonth() === monthIndex;
+        const disabled = !monthIntersectsRange(monthDate, this._minDate, this._maxDate);
 
-      return `
-        <button
-          type="button"
-          class="picker__cell${selected ? ' is-selected' : ''}${currentMonth ? ' is-today' : ''}"
-          data-month="${monthIndex}"
-          data-focused="${focused}"
-          aria-selected="${selected}"
-          aria-label="${getMonthName(monthDate, this._locale)} ${monthDate.getFullYear()}"
-          ${disabled ? 'disabled' : ''}
-          tabindex="${focused ? '0' : '-1'}"
-        >
-          <span>${getMonthName(monthDate, this._locale, 'short')}</span>
-        </button>
-      `;
+        return `
+          <button
+            role="gridcell"
+            type="button"
+            class="picker__cell${selected ? ' is-selected' : ''}${currentMonth ? ' is-today' : ''}"
+            data-month="${monthIndex}"
+            data-focused="${focused}"
+            aria-selected="${selected}"
+            ${currentMonth ? 'aria-current="true"' : ''}
+            aria-label="${htmlEscape(getMonthName(monthDate, this._locale))} ${monthDate.getFullYear()}"
+            ${disabled ? 'disabled' : ''}
+            tabindex="${focused ? '0' : '-1'}"
+          >
+            <span aria-hidden="true">${getMonthName(monthDate, this._locale, 'short')}</span>
+          </button>
+        `;
+      }).join('');
+
+      return `<div role="row" style="display:contents">${cells}</div>`;
     }).join('');
 
     return `
       <div class="picker__body" data-view="month">
         ${this._renderHeader()}
-        <div class="picker__grid picker__grid--months" role="grid" aria-label="Calendar months">
-          ${cells}
+        <div class="picker__grid picker__grid--months" role="grid" aria-label="${this._viewDate.getFullYear()} months">
+          ${rows}
         </div>
       </div>
     `;
@@ -810,34 +934,42 @@ export class DatePicker extends HTMLElement {
     const todayYear = today().getFullYear();
     const selectedYear = this._valueDate?.getFullYear();
 
-    const cells = Array.from({ length: YEAR_VIEW_SPAN }, (_, index) => {
-      const year = startYear + index;
-      const selected = selectedYear === year;
-      const focused = this._focusedDate.getFullYear() === year;
-      const currentYear = todayYear === year;
-      const disabled = !yearIntersectsRange(year, this._minDate, this._maxDate);
+    // Group 10 years into 2 rows of 5 for ARIA grid semantics.
+    const rows = Array.from({ length: 2 }, (_, rowIndex) => {
+      const cells = Array.from({ length: YEAR_VIEW_COLUMNS }, (_, colIndex) => {
+        const index = rowIndex * YEAR_VIEW_COLUMNS + colIndex;
+        const year = startYear + index;
+        const selected = selectedYear === year;
+        const focused = this._focusedDate.getFullYear() === year;
+        const currentYear = todayYear === year;
+        const disabled = !yearIntersectsRange(year, this._minDate, this._maxDate);
 
-      return `
-        <button
-          type="button"
-          class="picker__cell${selected ? ' is-selected' : ''}${currentYear ? ' is-today' : ''}"
-          data-year="${year}"
-          data-focused="${focused}"
-          aria-selected="${selected}"
-          aria-label="${year}"
-          ${disabled ? 'disabled' : ''}
-          tabindex="${focused ? '0' : '-1'}"
-        >
-          <span>${year}</span>
-        </button>
-      `;
+        return `
+          <button
+            role="gridcell"
+            type="button"
+            class="picker__cell${selected ? ' is-selected' : ''}${currentYear ? ' is-today' : ''}"
+            data-year="${year}"
+            data-focused="${focused}"
+            aria-selected="${selected}"
+            ${currentYear ? 'aria-current="true"' : ''}
+            aria-label="${year}"
+            ${disabled ? 'disabled' : ''}
+            tabindex="${focused ? '0' : '-1'}"
+          >
+            <span aria-hidden="true">${year}</span>
+          </button>
+        `;
+      }).join('');
+
+      return `<div role="row" style="display:contents">${cells}</div>`;
     }).join('');
 
     return `
       <div class="picker__body" data-view="year">
         ${this._renderHeader()}
-        <div class="picker__grid picker__grid--years" role="grid" aria-label="Calendar years">
-          ${cells}
+        <div class="picker__grid picker__grid--years" role="grid" aria-label="Select year">
+          ${rows}
         </div>
       </div>
     `;
@@ -846,12 +978,17 @@ export class DatePicker extends HTMLElement {
   render() {
     this._ensureRoot();
 
-    const label = this.getAttribute('label') || 'Choose a date';
-    const placeholder = this.getAttribute('placeholder') || 'Select a date';
+    const rawLabel = this.getAttribute('label') || 'Choose a date';
+    const rawPlaceholder = this.getAttribute('placeholder') || 'Select a date';
+    const label = htmlEscape(rawLabel);
     const displayValue = this._valueDate
-      ? new Intl.DateTimeFormat(this._locale, { month: 'long', day: 'numeric', year: 'numeric' }).format(this._valueDate)
-      : placeholder;
+      ? getCachedFormatter(this._locale, { month: 'long', day: 'numeric', year: 'numeric' }).format(this._valueDate)
+      : htmlEscape(rawPlaceholder);
     const helperText = this._valueDate ? formatDateString(this._valueDate) : 'No date selected';
+    // Combine label + current value so AT announces both on focus.
+    const triggerAccessibleName = this._valueDate
+      ? `${label}: ${htmlEscape(displayValue)}`
+      : label;
     const viewMarkup = this._view === 'day' ? this._renderDayView() : this._view === 'month' ? this._renderMonthView() : this._renderYearView();
     const todayDisabled = !isWithinRange(today(), this._minDate, this._maxDate);
 
@@ -864,11 +1001,11 @@ export class DatePicker extends HTMLElement {
           aria-expanded="${this._open}"
           aria-controls="${this._panelId}"
           aria-haspopup="dialog"
-          aria-label="${label}"
+          aria-label="${triggerAccessibleName}"
         >
           <span class="picker__trigger-copy">
             <span class="picker__trigger-label">${displayValue}</span>
-            <span class="picker__trigger-meta">${helperText}</span>
+            <span class="picker__trigger-meta">${htmlEscape(helperText)}</span>
           </span>
           <span class="picker__trigger-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -882,6 +1019,7 @@ export class DatePicker extends HTMLElement {
           class="picker__panel"
           role="dialog"
           aria-label="${label}"
+          aria-modal="true"
           aria-hidden="${!this._open}"
         >
           ${viewMarkup}
